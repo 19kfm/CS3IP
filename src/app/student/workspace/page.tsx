@@ -66,25 +66,21 @@ export default function StudentWorkspacePage() {
   const [membership, setMembership] = useState<Membership>(null);
   const [mLoading, setMLoading] = useState(true);
 
-  // WORK LOGS
   const [logs, setLogs] = useState<WorkLogRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // New log form
   const [title, setTitle] = useState("");
   const [minutes, setMinutes] = useState<number>(30);
   const [link, setLink] = useState("");
   const [description, setDescription] = useState("");
 
-  // TASKS
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [taskTitle, setTaskTitle] = useState("");
   const [assignTo, setAssignTo] = useState<string>("");
   const [tBusy, setTBusy] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
 
-  // SHARED WORKSPACE
   const [teamNote, setTeamNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
 
@@ -345,7 +341,6 @@ export default function StudentWorkspacePage() {
       { href: "/student/dashboard", label: "Student Dashboard" },
       { href: "/student/workspace", label: "Team Workspace", active: true },
       { href: "/student/feedback", label: "Peer Feedback" },
-      { href: "/student/health", label: "Team Health" },
       { href: "/student/insights", label: "Personal Insights" },
     ],
     []

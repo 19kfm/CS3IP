@@ -44,7 +44,6 @@ export default function EducatorTeamsPage() {
           const arr = c as Course[];
           setCourses(arr);
 
-          // If URL didn’t provide a course, pick first
           if (!courseId && arr?.[0]?.id) setCourseId(arr[0].id);
         })
         .catch((e) => setError(e?.message ?? "Failed to load courses"));
@@ -59,7 +58,6 @@ export default function EducatorTeamsPage() {
       const t = (await listTeams(cid)) as any[];
       setTeams(t as any);
 
-      // meta = member counts + tasks counts
       const m = (await getTeamMetaForCourse(cid)) as TeamMeta[];
       const map: Record<string, TeamMeta> = {};
       for (const row of m) map[row.team_id] = row;
@@ -88,7 +86,6 @@ export default function EducatorTeamsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="border-b bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
@@ -128,14 +125,14 @@ export default function EducatorTeamsPage() {
         </div>
       </header>
 
-      {/* Content */}
       <div className="mx-auto max-w-6xl px-6 py-6 space-y-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="text-lg font-semibold text-gray-900">Educator Team View</h1>
               <p className="mt-1 text-sm text-gray-600">
-                Browse teams and open the detailed team view (roster + tasks + logs).
+                Select a course to review its teams, member counts, and current task progress,
+                then open any team for detailed oversight.
               </p>
             </div>
 
@@ -156,7 +153,11 @@ export default function EducatorTeamsPage() {
           </div>
 
           <div className="mt-3 text-sm text-gray-600">
-            {busy ? "Loading…" : selectedCourse ? `Teams for ${selectedCourse.code} (${teams.length})` : ""}
+            {busy
+              ? "Loading…"
+              : selectedCourse
+              ? `Showing ${teams.length} team${teams.length === 1 ? "" : "s"} for ${selectedCourse.code}`
+              : ""}
           </div>
         </div>
 
@@ -173,7 +174,9 @@ export default function EducatorTeamsPage() {
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-gray-500">{selectedCourse?.code} • {selectedCourse?.term}</p>
+                    <p className="text-xs text-gray-500">
+                      {selectedCourse?.code} • {selectedCourse?.term}
+                    </p>
                     <h2 className="mt-1 text-lg font-semibold text-gray-900">{t.name}</h2>
                   </div>
 
@@ -184,8 +187,8 @@ export default function EducatorTeamsPage() {
 
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   <MiniStat label="Members" value={m ? String(m.member_count) : "—"} />
-                  <MiniStat label="Open" value={m ? String(m.open_tasks) : "—"} />
-                  <MiniStat label="Done" value={m ? String(m.done_tasks) : "—"} />
+                  <MiniStat label="Open tasks" value={m ? String(m.open_tasks) : "—"} />
+                  <MiniStat label="Completed" value={m ? String(m.done_tasks) : "—"} />
                 </div>
               </Link>
             );
@@ -193,7 +196,8 @@ export default function EducatorTeamsPage() {
 
           {!busy && teams.length === 0 && !error && (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-sm text-gray-600">
-              No teams found for this course yet. Create teams from <span className="font-medium">My Courses → Teams</span>.
+              No teams have been created for this course yet. Use{" "}
+              <span className="font-medium">My Courses → Teams</span> to create and manage teams.
             </div>
           )}
         </div>

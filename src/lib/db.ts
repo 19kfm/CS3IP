@@ -95,6 +95,52 @@ export async function searchStudentsByEmail(query: string) {
 
 // Add student to a team
 export async function addStudentToTeam(teamId: string, studentId: string) {
+  // Get target team so we know which course it belongs to
+  const { data: targetTeam, error: targetTeamErr } = await supabase
+    .from("teams")
+    .select("id, course_id, name")
+    .eq("id", teamId)
+    .single();
+
+  if (targetTeamErr) throw targetTeamErr;
+
+  // Get all teams in the same course
+  const { data: teamsInCourse, error: teamsErr } = await supabase
+    .from("teams")
+    .select("id, name")
+    .eq("course_id", targetTeam.course_id);
+
+  if (teamsErr) throw teamsErr;
+
+  const teamIdsInCourse = (teamsInCourse ?? []).map((t: any) => t.id);
+
+  // Check whether the student is already in a different team in this same course
+  if (teamIdsInCourse.length > 0) {
+    const { data: existingMemberships, error: existingErr } = await supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("student_id", studentId)
+      .in("team_id", teamIdsInCourse);
+
+    if (existingErr) throw existingErr;
+
+    const existing = existingMemberships?.[0];
+
+    if (existing?.team_id) {
+      const existingTeam = (teamsInCourse ?? []).find((t: any) => t.id === existing.team_id);
+
+      if (existing.team_id === teamId) {
+        throw new Error("This student is already in this team.");
+      }
+
+      throw new Error(
+        `This student is already assigned to another team in this course${
+          existingTeam?.name ? ` (${existingTeam.name})` : ""
+        }. Remove them from that team first before adding them here.`
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from("team_members")
     .insert({ team_id: teamId, student_id: studentId })
@@ -103,6 +149,17 @@ export async function addStudentToTeam(teamId: string, studentId: string) {
 
   if (error) throw error;
   return data;
+}
+
+export async function removeStudentFromTeam(teamId: string, studentId: string) {
+  const { error } = await supabase
+    .from("team_members")
+    .delete()
+    .eq("team_id", teamId)
+    .eq("student_id", studentId);
+
+  if (error) throw error;
+  return true;
 }
 
 // List members of a team (for educator view) - normalized result
@@ -287,7 +344,6 @@ export async function getCourseTeamHealth(courseId: string) {
     const avgCom = count ? agg!.sumCom / count : null;
     const avgQual = count ? agg!.sumQual / count : null;
 
-    // sort tags by frequency
     const topTags = agg
       ? Object.entries(agg.tagCounts)
           .sort((a, b) => b[1] - a[1])
@@ -295,7 +351,6 @@ export async function getCourseTeamHealth(courseId: string) {
           .map(([tag, n]) => ({ tag, n }))
       : [];
 
-    // simple risk rule for MVP
     const risk =
       count >= 3 && (avgRel! < 3 || avgCom! < 3 || avgQual! < 3) ? "At risk" : "OK";
 
@@ -442,7 +497,6 @@ export async function createTask(payload: {
   const user = userData.user;
   if (!user) throw new Error("Not logged in.");
 
-  // IMPORTANT: set status explicitly to "todo" so UI matches expected default
   const { data, error } = await supabase
     .from("tasks")
     .insert({
@@ -488,6 +542,7 @@ export async function listMyTeamMembers() {
   const members = await listTeamMembers(teamId);
   return members;
 }
+
 // ============================
 // EDUCATOR TEAM VIEW (MVP)
 // ============================
@@ -500,7 +555,6 @@ export type TeamHeader = {
 };
 
 export async function getTeamHeader(teamId: string): Promise<TeamHeader> {
-  // team -> course
   const { data: team, error: teamErr } = await supabase
     .from("teams")
     .select("id,name,course_id")
@@ -526,7 +580,6 @@ export async function getTeamHeader(teamId: string): Promise<TeamHeader> {
 }
 
 export async function getTeamWorkLogSummary(teamId: string) {
-  // list logs (reuse your existing work log function)
   const logs = await listTeamWorkLogs(teamId);
 
   const totalMinutes = logs.reduce((sum, l) => sum + (l.minutes ?? 0), 0);
@@ -536,7 +589,6 @@ export async function getTeamWorkLogSummary(teamId: string) {
 }
 
 export async function getTeamTaskSummary(teamId: string) {
-  // list tasks (reuse your task list)
   const tasks = await listTeamTasks(teamId);
 
   const counts = {
@@ -632,7 +684,6 @@ export async function getTeamMetaForCourse(courseId: string) {
     memberCountByTeam[tid] = (memberCountByTeam[tid] ?? 0) + 1;
   }
 
-  // "open" on the page means todo + doing
   const openByTeam: Record<string, number> = {};
   const doneByTeam: Record<string, number> = {};
 
@@ -1027,12 +1078,11 @@ export async function getMyContributionSummary(): Promise<StudentContributionSum
     strengths.push("Communication is being rated positively by teammates.");
   }
   if (avgRel != null && avgRel >= 4) {
-  strengths.push("Reliability is being rated positively by teammates.");
-}
-if (avgQual != null && avgQual >= 4) {
-  strengths.push("Work quality is being rated positively by teammates.");
-}
-
+    strengths.push("Reliability is being rated positively by teammates.");
+  }
+  if (avgQual != null && avgQual >= 4) {
+    strengths.push("Work quality is being rated positively by teammates.");
+  }
 
   if (task_counts.todo > 0) {
     attention_areas.push("You still have assigned tasks marked as To do.");

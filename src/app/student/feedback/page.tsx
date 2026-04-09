@@ -153,9 +153,6 @@ export default function StudentFeedbackPage() {
             <a href="/student/feedback" className="font-medium text-gray-900">
               Peer Feedback
             </a>
-            <a href="/student/health" className="text-gray-600 hover:text-gray-900">
-              Team Health
-            </a>
             <a href="/student/insights" className="text-gray-600 hover:text-gray-900">
               Personal Insights
             </a>
@@ -187,9 +184,6 @@ export default function StudentFeedbackPage() {
               Workspace
             </a>
             <span className="font-medium text-gray-900">Feedback</span>
-            <a href="/student/health" className="text-gray-600 hover:text-gray-900">
-              Health
-            </a>
             <a href="/student/insights" className="text-gray-600 hover:text-gray-900">
               Insights
             </a>
@@ -198,9 +192,7 @@ export default function StudentFeedbackPage() {
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-6 space-y-4">
-        {pageBusy ? (
-          <p className="text-sm text-gray-500">Loading…</p>
-        ) : null}
+        {pageBusy ? <p className="text-sm text-gray-500">Loading…</p> : null}
 
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-start gap-3">
@@ -243,7 +235,7 @@ export default function StudentFeedbackPage() {
                     <option value="last_2_weeks">Last 2 weeks</option>
                   </select>
                   <p className="mt-1 text-xs text-gray-500">
-                    (MVP note: period selection is UI-only for now.)
+                    (This selection is currently visual only in the MVP.)
                   </p>
                 </div>
               </div>
@@ -265,7 +257,9 @@ export default function StudentFeedbackPage() {
                   : "Select a teammate to begin"}
               </p>
               <p className="text-xs text-gray-500">
-                {selectedTeammate ? "Provide fair, constructive feedback." : "You must be assigned to a team."}
+                {selectedTeammate
+                  ? "Provide fair, constructive feedback."
+                  : "You must be assigned to a team."}
               </p>
             </div>
           </div>

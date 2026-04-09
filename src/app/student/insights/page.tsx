@@ -79,9 +79,6 @@ export default function StudentInsightsPage() {
             <Link href="/student/feedback" className="text-gray-600 hover:text-gray-900">
               Peer Feedback
             </Link>
-            <Link href="/student/health" className="text-gray-600 hover:text-gray-900">
-              Team Health
-            </Link>
             <Link href="/student/insights" className="font-medium text-gray-900">
               Personal Insights
             </Link>
@@ -114,9 +111,6 @@ export default function StudentInsightsPage() {
             </a>
             <a href="/student/feedback" className="text-gray-600 hover:text-gray-900">
               Feedback
-            </a>
-            <a href="/student/health" className="text-gray-600 hover:text-gray-900">
-              Health
             </a>
             <span className="font-medium text-gray-900">Insights</span>
           </div>

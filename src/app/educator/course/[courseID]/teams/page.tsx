@@ -8,6 +8,7 @@ import {
   listTeams,
   searchStudentsByEmail,
   addStudentToTeam,
+  removeStudentFromTeam,
   listTeamMembers,
 } from "@/lib/db";
 
@@ -22,11 +23,20 @@ type Student = {
 
 type MemberProfile = { id: string; email: string | null; display_name: string | null };
 
+function friendlyAssignError(message: string) {
+  if (message.includes("already assigned to another team in this course")) {
+    return message;
+  }
+  if (message.includes("already in this team")) {
+    return "This student is already a member of that team.";
+  }
+  return message;
+}
+
 export default function CourseTeamsPage() {
   const router = useRouter();
   const params = useParams();
 
-  // IMPORTANT: because your folder is [courseID], the param key is courseID (capital D)
   const courseId = params.courseID as string;
 
   const { loading } = useRoleGuard("educator");
@@ -35,7 +45,6 @@ export default function CourseTeamsPage() {
   const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
 
-  // Per-team UI state (kept in objects keyed by teamId)
   const [searchTextByTeam, setSearchTextByTeam] = useState<Record<string, string>>({});
   const [searchResultsByTeam, setSearchResultsByTeam] = useState<Record<string, Student[]>>({});
   const [membersByTeam, setMembersByTeam] = useState<Record<string, MemberProfile[]>>({});
@@ -48,18 +57,17 @@ export default function CourseTeamsPage() {
     setTeams(data as Team[]);
   }
 
- async function refreshMembers(teamId: string) {
-  const m = await listTeamMembers(teamId);
-  setMembersByTeam((prev) => ({ ...prev, [teamId]: m }));
-}
+  async function refreshMembers(teamId: string) {
+    const m = await listTeamMembers(teamId);
+    setMembersByTeam((prev) => ({ ...prev, [teamId]: m }));
+  }
 
   useEffect(() => {
     if (!loading && safeCourseId) {
-      refreshTeams().catch((e) => setError(e.message ?? "Failed to load teams"));
+      refreshTeams().catch((e: any) => setError(e?.message ?? "Failed to load teams"));
     }
   }, [loading, safeCourseId]);
 
-  // When teams load, pull members for each team
   useEffect(() => {
     (async () => {
       for (const t of teams) {
@@ -92,6 +100,7 @@ export default function CourseTeamsPage() {
   async function handleSearch(teamId: string) {
     setError("");
     const q = (searchTextByTeam[teamId] ?? "").trim();
+
     if (!q) {
       setSearchResultsByTeam((prev) => ({ ...prev, [teamId]: [] }));
       return;
@@ -102,7 +111,7 @@ export default function CourseTeamsPage() {
       const results = (await searchStudentsByEmail(q)) as Student[];
       setSearchResultsByTeam((prev) => ({ ...prev, [teamId]: results }));
     } catch (e: any) {
-      setError(e.message ?? "Search failed");
+      setError(e?.message ?? "Search failed");
     } finally {
       setBusyByTeam((prev) => ({ ...prev, [teamId]: false }));
     }
@@ -110,16 +119,35 @@ export default function CourseTeamsPage() {
 
   async function handleAssign(teamId: string, studentId: string) {
     setError("");
+
     try {
       setBusyByTeam((prev) => ({ ...prev, [teamId]: true }));
       await addStudentToTeam(teamId, studentId);
 
-      // Refresh members list and clear search results for cleanliness
       await refreshMembers(teamId);
       setSearchResultsByTeam((prev) => ({ ...prev, [teamId]: [] }));
       setSearchTextByTeam((prev) => ({ ...prev, [teamId]: "" }));
     } catch (e: any) {
-      setError(e.message ?? "Failed to assign student");
+      setError(friendlyAssignError(e?.message ?? "Failed to assign student"));
+    } finally {
+      setBusyByTeam((prev) => ({ ...prev, [teamId]: false }));
+    }
+  }
+
+  async function handleRemove(teamId: string, studentId: string) {
+    setError("");
+
+    const ok = window.confirm(
+      "Remove this student from the team? They will lose access to this team workspace."
+    );
+    if (!ok) return;
+
+    try {
+      setBusyByTeam((prev) => ({ ...prev, [teamId]: true }));
+      await removeStudentFromTeam(teamId, studentId);
+      await refreshMembers(teamId);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to remove student from team");
     } finally {
       setBusyByTeam((prev) => ({ ...prev, [teamId]: false }));
     }
@@ -138,7 +166,6 @@ export default function CourseTeamsPage() {
           </button>
         </div>
 
-        {/* Create team */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <form onSubmit={handleCreateTeam} className="flex gap-3">
             <input
@@ -153,11 +180,12 @@ export default function CourseTeamsPage() {
           </form>
 
           {error && (
-            <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>
+            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </p>
           )}
         </div>
 
-        {/* Teams list */}
         <div className="grid gap-3">
           {teams.map((t) => {
             const members = membersByTeam[t.id] ?? [];
@@ -172,26 +200,35 @@ export default function CourseTeamsPage() {
                   <span className="text-sm text-gray-500">{members.length} members</span>
                 </div>
 
-                {/* Members */}
                 <div className="mt-3 space-y-2">
                   {members.length === 0 ? (
                     <p className="text-sm text-gray-600">No members assigned yet.</p>
                   ) : (
                     members.map((m) => (
-                        <div
-                            key={m.id}
-                            className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
-                        >
-                            <div>
-                            <p className="text-sm font-medium text-gray-900">{m.display_name ?? "Student"}</p>
-                            <p className="text-xs text-gray-600">{m.email ?? ""}</p>
-                            </div>
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-3 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {m.display_name ?? "Student"}
+                          </p>
+                          <p className="text-xs text-gray-600">{m.email ?? ""}</p>
                         </div>
-                        ))
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(t.id, m.id)}
+                          disabled={busy}
+                          className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))
                   )}
                 </div>
 
-                {/* Assign student */}
                 <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
                   <p className="text-sm font-medium text-gray-900">Assign student by email</p>
 
@@ -214,7 +251,6 @@ export default function CourseTeamsPage() {
                     </button>
                   </div>
 
-                  {/* Results */}
                   {results.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {results.map((s) => (

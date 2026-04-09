@@ -10,15 +10,13 @@ export default function LoginPage() {
   const router = useRouter();
 
   const [mode, setMode] = useState<Mode>("signin");
-  const [displayName, setDisplayName] = useState(""); // NEW
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  // Option 2: educator code (simple)
   const [educatorCode, setEducatorCode] = useState("");
 
   const [error, setError] = useState<string>("");
-  const [info, setInfo] = useState<string>(""); // NEW
+  const [info, setInfo] = useState<string>("");
 
   const educatorCodeExpected = useMemo(
     () => (process.env.NEXT_PUBLIC_EDUCATOR_CODE ?? "").trim(),
@@ -30,7 +28,6 @@ export default function LoginPage() {
     setError("");
     setInfo("");
 
-    // clear signup-only fields when leaving signup
     if (next === "signin") {
       setEducatorCode("");
       setDisplayName("");
@@ -42,23 +39,47 @@ export default function LoginPage() {
     setError("");
     setInfo("");
 
-    try {
-      if (mode === "signin") {
-        await signIn(email, password);
-      } else {
-        // SIGN UP
-        await signUp(email, password);
+    const trimmedEmail = email.trim();
+    const trimmedDisplayName = displayName.trim();
+    const trimmedEducatorCode = educatorCode.trim();
 
-        // Decide role from code
+    try {
+      if (!trimmedEmail) {
+        setError("Please enter your email.");
+        return;
+      }
+
+      if (!password) {
+        setError("Please enter your password.");
+        return;
+      }
+
+      if (mode === "signin") {
+        await signIn(trimmedEmail, password);
+      } else {
+        if (!trimmedDisplayName) {
+          setError("Please enter a display name.");
+          return;
+        }
+
+        // Blank code = student
+        // Correct code = educator
+        // Wrong non-blank code = block signup and show error
+        if (
+          trimmedEducatorCode &&
+          trimmedEducatorCode !== educatorCodeExpected
+        ) {
+          setError("That educator access code is incorrect.");
+          return;
+        }
+
         const role =
-          educatorCodeExpected &&
-          educatorCode.trim() &&
-          educatorCode.trim() === educatorCodeExpected
+          trimmedEducatorCode && trimmedEducatorCode === educatorCodeExpected
             ? "educator"
             : "student";
 
-        // Create/Update profile row (now includes display name)
-        await upsertMyProfile(role, displayName);
+        await signUp(trimmedEmail, password);
+        await upsertMyProfile(role, trimmedDisplayName);
       }
 
       const profile = await getMyProfile();
@@ -81,7 +102,6 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-gray-500">Educational Teamwork Support System</p>
         </div>
 
-        {/* Toggle */}
         <div className="mt-6 grid grid-cols-2 rounded-xl border border-gray-200 bg-gray-50 p-1">
           <button
             type="button"
@@ -104,7 +124,6 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          {/* Display name only on Sign Up */}
           {mode === "signup" && (
             <div>
               <label className="text-sm font-medium text-gray-900">Display name</label>
@@ -144,7 +163,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Educator code only on Sign Up */}
           {mode === "signup" && (
             <div>
               <label className="text-sm font-medium text-gray-900">
@@ -152,9 +170,11 @@ export default function LoginPage() {
               </label>
               <input
                 className="mt-1 w-full rounded-xl border border-gray-200 bg-white p-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-gray-400"
+                type="password"
                 value={educatorCode}
                 onChange={(e) => setEducatorCode(e.target.value)}
                 placeholder="Enter code if you are an educator"
+                autoComplete="off"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Leave blank to create a student account.
@@ -162,7 +182,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Forgot password placeholder (sign in only) */}
           {mode === "signin" && (
             <div className="flex items-center justify-between text-sm">
               <button
